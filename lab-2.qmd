@@ -1,6 +1,7 @@
 ---
 title: "Lab 2"
 subtitle: "Advanced Data Visualization"
+author: "Sydney Potkey"
 editor: source
 embed-resources: true
 ---
@@ -32,25 +33,32 @@ Gallup World Poll:
 story of this graph in words. That is, what is this graph telling you? What do
 you think the authors meant to convey with it?
 
+This graph is attempting to compare the percent of people who believe vaccines are safe in various countries grouped by region. I think that the authors meant to convey the apprehension certain countries have pertaining to vaccines. 
 
 
 2. List the variables that appear to be displayed in this visualization. 
 *Hint: Variables refer to columns in the data.*
 
+The variables evident in this graph are region (Americas, Asia, etc.), and percent of population who believe vaccines are safe.
 
 
 3. Now that you're versed in the grammar of graphics (e.g., `ggplot`), list the *aesthetics* used and which *variables* are mapped to each.
 
-
+It seems like the graph only uses an x axis variable, percent of population who believes vaccines are safe, and a grouping variable, region. The graph does not contai a y axis variable even though points are plotted at different heights. 
 
 4. What type of graph would you call this? Meaning, what `geom` would you use
 to produce this plot?
 
+I would say this is a geom point.
 
 
 5. Provide at least four problems or changes that would improve this graph. 
 *Please format your changes as bullet points!*
 
+* apply a relevant y axis variable or change the style of plot 
+* connect the grid lines 
+* move the region labels to somewhere where they are not crowding 
+* add an x-axis label that tells the reader the numeric values are percents or add percent signs
 
 
 ## Improving the Bad Visualization
@@ -64,10 +72,51 @@ them in separately, but you may also just use one if it suffices.
 
 ```{r}
 #| label: read-in-wellcome-data
-
+library(tidyverse)
+library(readxl)
+world_data <- read_excel("/Users/sydneypotkey/Desktop/wgm2018-dataset-crosstabs-all-countries.xlsx", sheet = 1)
+world_data_full <- read_excel("/Users/sydneypotkey/Desktop/wgm2018-dataset-crosstabs-all-countries.xlsx", sheet = 2)
+world_data <- read_excel("/Users/sydneypotkey/Desktop/wgm2018-dataset-crosstabs-all-countries.xlsx", sheet = 3)
+head(df)
 
 ```
+# Filtering the Data
+```{r}
 
+data_dictionary <- world_data |>
+  filter(`Variable Name` == "WP5") |>
+  mutate(code_list = str_split(`Variable Type & Codes*`, ",")) |>
+  select(code_list) |>                      
+  unnest(code_list) |>                       
+  mutate(code_list = str_trim(code_list)) |> 
+  separate(code_list, into = c("WP5", "country"), sep = "=") |>
+  mutate(WP5 = as.character(WP5))
+
+
+world_data_full <- world_data_full |> 
+  mutate(WP5 = as.character(WP5))
+
+  
+
+joined_data <- inner_join(world_data_full, data_dictionary, by = "WP5" )
+
+joined <- joined_data |>
+  select(country, Q25, Regions_Report)
+
+graph_data <- joined |> 
+  mutate(region = case_when(Regions_Report %in% c(9, 10, 11, 12)~"Asia", Regions_Report %in% c(1, 2, 4, 5)~"Sub-Saharan Africa", Regions_Report %in% c(6, 7, 8)~"Americas", Regions_Report %in% c(14, 15, 16, 17)~"Europe", Regions_Report == 18~"Australia & NZ", Regions_Report %in% c(3, 13)~"North Africa & Middle East")) |>
+  filter(!is.na(region)) |>
+  group_by(country, region) |> 
+  summarise(total_respondents = n(),
+    agree = sum(Q25 == 1, na.rm = TRUE),
+    percent_agree = 100 * agree / total_respondents
+  ) |> 
+  arrange(desc(percent_agree)) 
+  
+
+  
+
+```
 6. Improve the visualization above by either re-creating it with the issues you
 identified fixed OR by creating a new visualization that you believe tells the
 same story better.
@@ -75,6 +124,38 @@ same story better.
 ```{r}
 #| label: new-and-improved-visualization
 
+library(scales)
+library(ggiraph)
+
+cbp2 <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+  
+
+plot <- ggplot(data = graph_data, aes(y = percent_agree/100, x = country, color = region, tooltip = country, data_id = country)) +
+  geom_point_interactive(size = 2) + 
+  facet_grid(~region, labeller = label_wrap_gen(width = 15)) +
+  labs(x = "Country", subtitle  = "Percent Who Believe Vaccines Are Safe", title = "Percent of Population That Believe Vaccinces Are Safe by Region", y = "") + 
+  theme_light()+ 
+  scale_color_manual(values = cbp2) +
+  scale_y_continuous(labels = label_percent()) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "none", 
+        plot.title = element_text(face = "bold")
+        ) 
+
+    
+  
+  geom_point_interactive(aes(x = wt, y = qsec, color = disp,
+    tooltip = carname, data_id = carname))
+  
+  girafe(ggobj = plot)
+  
+  
+ 
 
 ```
 
