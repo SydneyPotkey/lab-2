@@ -4,6 +4,9 @@ subtitle: "Advanced Data Visualization"
 author: "Sydney Potkey"
 editor: source
 embed-resources: true
+theme: cosmo
+toc: true
+code-fold: true
 ---
 
 # Instructions
@@ -70,8 +73,11 @@ The data for the Wellcome Global Monitor 2018 report can be downloaded at the fo
 There are two worksheets in the downloaded dataset file. You may need to read
 them in separately, but you may also just use one if it suffices.
 
+# Visualization 1
+
 ```{r}
 #| label: read-in-wellcome-data
+#| message: false
 library(tidyverse)
 library(readxl)
 world_data <- read_excel("/Users/sydneypotkey/Desktop/wgm2018-dataset-crosstabs-all-countries.xlsx", sheet = 1)
@@ -80,8 +86,10 @@ world_data <- read_excel("/Users/sydneypotkey/Desktop/wgm2018-dataset-crosstabs-
 head(df)
 
 ```
-# Filtering the Data
+## Filtering the Data
 ```{r}
+#| message: false
+#| warning: false
 
 data_dictionary <- world_data |>
   filter(`Variable Name` == "WP5") |>
@@ -123,6 +131,8 @@ same story better.
 
 ```{r}
 #| label: new-and-improved-visualization
+#| message: false
+#| warning: false
 
 library(scales)
 library(ggiraph)
@@ -135,7 +145,7 @@ cbp2 <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 plot <- ggplot(data = graph_data, aes(y = percent_agree/100, x = country, color = region, tooltip = country, data_id = country)) +
   geom_point_interactive(size = 2) + 
   facet_grid(~region, labeller = label_wrap_gen(width = 15)) +
-  labs(x = "Country", subtitle  = "Percent Who Believe Vaccines Are Safe", title = "Percent of Population That Believe Vaccinces Are Safe by Region", y = "") + 
+  labs(x = "", subtitle  = "Percent Who Believe Vaccines Are Safe", title = "Percent of Population That Believe Vaccinces Are Safe by Region", y = "") + 
   theme_light()+ 
   scale_color_manual(values = cbp2) +
   scale_y_continuous(labels = label_percent()) +
@@ -144,8 +154,7 @@ plot <- ggplot(data = graph_data, aes(y = percent_agree/100, x = country, color 
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_blank(),
         legend.position = "none", 
-        plot.title = element_text(face = "bold")
-        ) 
+        plot.title = element_text(face = "bold")) 
 
     
   
@@ -165,7 +174,7 @@ The full Wellcome Global Monitor 2018 report can be found here: [https://wellcom
 Surprisingly, the visualization above does not appear in the report despite the
 citation in the bottom corner of the image!
 
-## Second Data Visualization Improvement
+# Visualization 2
 
 **For this second plot, you must select a plot that uses maps so you can demonstrate your proficiency with the `leaflet` package!**
 
@@ -174,32 +183,92 @@ Be sure to cite both the page number and figure title. Do your best to tell the
 story of this graph in words. That is, what is this graph telling you? What do
 you think the authors meant to convey with it?
 
-
+I chose the chloropleth graph from the first page titled Hindi belt scores low while south does better". This graph shows the female labor percentage in Indian states. They are trying to highlight stark differences in labor percentage based on the different states. 
 
 8. List the variables that appear to be displayed in this visualization.
 
-
+State and female labor percent
 
 9. Now that you're versed in the grammar of graphics (ggplot), list the
 aesthetics used and which variables are specified for each.
 
-
+This graph does not use gg plot.
 
 10. What type of graph would you call this?
 
+Chloropleth 
 
+11. List all of the problems or things you would improve about this graph. 
 
-11. List all of the problems or things you would improve about this graph.  
+The main problem is the legend. The scale used for the legen is not standard and does not make sense. It could also be misleading since each color gradient represents a different amount of change. ex. the first shade represents 4.1-15.4, a change of about 11 percentage point, but the second shade represents 15.5-19.9, only about 4 percentage points.
 
 12. Improve the visualization above by either re-creating it with the issues you identified fixed OR by creating a new visualization that you believe tells the same story better.
 
 ```{r}
 #| label: second-improved-visualization
+#| warning: false
+
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+library(leaflet)
+library(data.table)
+library(tidyverse)
+library(sf)
+library(RColorBrewer)
+library(rnaturalearth)
+library(rnaturalearthhires) 
+
+#loading data 
+
+WomenWork <- read.csv("~/Desktop/data-CEoiN.csv")
 
 
+#Installed from Git Hub
+#I did use chat gpt to figure out how to get this package from git hub, I also looked up a you tube video to figure out the hover effect in the graph.
+devtools::install_github("ropensci/rnaturalearthhires")
+
+
+india_states <- ne_states(country = "India", returnclass = "sf")
+
+#making the states format compatible to join
+WomenWork <- WomenWork |>
+  mutate(state = tolower(trimws(State..UT))) |>
+  filter(!is.na(Female.LFPR....))
+
+india_states <- india_states |>
+  mutate(state = tolower(trimws(name)))
+
+#joining and filtering missing values
+map_data <- left_join(india_states, WomenWork, by = "state") |>
+  filter(!is.na(Female.LFPR....))
+
+
+pal <- colorNumeric("Greens", domain = map_data$Female.LFPR....)
+
+leaflet(map_data) |>
+  addProviderTiles("CartoDB.Voyager") |>
+  addPolygons(fillColor = ~pal(Female.LFPR....),
+    color = "white",
+    weight = 1,
+    fillOpacity = 0.8,
+    label = ~paste0(name, ": ", Female.LFPR...., "%"),
+    highlightOptions = highlightOptions(weight = 2,
+      bringToFront = TRUE)) |>
+  addLegend(pal = pal,
+    values = ~Female.LFPR....,
+    title = "Female Labor Force Participation (%)",
+    position = "bottomright" ) 
+  
+  
+
+
+
+
+
+ 
 ```
 
-## Third Data Visualization Improvement
+# Visualization 3
 
 **For this third plot, you must use one of the other `ggplot2` extension packages mentioned this week (e.g., `gganimate`, `plotly`, `patchwork`, `cowplot`).**
  
@@ -208,27 +277,60 @@ Be sure to cite both the page number and figure title. Do your best to tell the
 story of this graph in words. That is, what is this graph telling you? What do
 you think the authors meant to convey with it?
 
-
+I used the visualization titled "Average Female height per Country. This graph shows the differences in height for multiple countries across different continents. It uses female figures to display that these are the heights of female residents specifically. 
 
 14. List the variables that appear to be displayed in this visualization.
 
-
+Country and height
 
 15. Now that you're versed in the grammar of graphics (ggplot), list the
 aesthetics used and which variables are specified for each.
 
-
+The aesthetics of this graph are y = height, fill = country, x = country
 
 16. What type of graph would you call this?
 
-
+A bar chart
 
 17. List all of the problems or things you would improve about this graph.  
+
+This graph is very misleading since it uses figures as the bars i the bar chart. The figures are scaled so instead of just showing differences in height they shrink completely. Also the title could be improved and the y axis needs to begin at 0. 
+
 
 18. Improve the visualization above by either re-creating it with the issues you identified fixed OR by creating a new visualization that you believe tells the same story better.
 
 ```{r}
 #| label: third-improved-visualization
+#| warning: false
+#| message: false
+
+library(cowplot)
+
+df <- data.frame(country = c("Latvia", "Australia", "Scotland", "Peru", "South Africa", "India"), Height = c(65, 64, 64, 64, 62, 60))
+
+pink_palette <- c("#FEC5E5", "#F79AC0", "#FD5DA8", "#FF1480", "#F25278", "#DB7093")
+
+feet <- function(x) {
+  feet <- floor(x / 12)
+  inches <- round(x %% 12)
+  paste0(feet, "'", inches, "\"")
+}
+
+
+
+ggplot(data = df, aes( x = country, y = Height, fill = country)) + 
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = pink_palette) + 
+  theme_minimal_vgrid() +
+  scale_y_continuous(labels = feet)  +
+  theme(panel.grid.major.y = element_blank(),
+        legend.position = "none",
+        plot.title = element_text(face = "bold")) + 
+  labs(x = "", y = "Height (Feet)", title = "Average Female Height by Country") + 
+  coord_flip() + 
+  geom_text(aes(label = feet(Height)), hjust = 1.5, size = 4, color = "white")
+
+
 
 
 ```
